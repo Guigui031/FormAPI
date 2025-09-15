@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  formapi:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      # Mount Gmail API credentials if using service account file
+      # - ./credentials.json:/app/credentials.json:ro
+      # Or mount entire .config for user credentials
+      - ~/.config/gcloud:/home/app/.config/gcloud:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
