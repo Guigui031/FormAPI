@@ -7,6 +7,7 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
+      - GOOGLE_APPLICATION_CREDENTIALS=credentials.json
     volumes:
       # Mount Gmail API credentials if using service account file
       # - ./credentials.json:/app/credentials.json:ro
