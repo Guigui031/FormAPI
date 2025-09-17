@@ -8,31 +8,21 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from setup_auth import setup_gmail_auth
 
 app = Flask(__name__)
 CORS(app)
 
 def get_gmail_credentials():
-    """Get Gmail API credentials for local development or production"""
+    """Get Gmail API credentials using service account or default credentials"""
     SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-    creds = None
 
-    # For local development, try to use token.json
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-
-    # If no local token, try default credentials (production)
-    if not creds or not creds.valid:
-        try:
-            creds, _ = google.auth.default(scopes=SCOPES)
-        except Exception:
-            # If default fails and we have local token, try to refresh it
-            if os.path.exists('token.json'):
-                creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-            else:
-                raise Exception("No valid credentials found. Run setup_auth.py first for local testing.")
+    try:
+        # Try to use default credentials (service account or gcloud auth)
+        creds, _ = google.auth.default(scopes=SCOPES)
+        return creds
+    except Exception as e:
+        raise Exception(f"No valid credentials found. Error: {e}")
 
     return creds
 
@@ -133,6 +123,14 @@ def contact_form():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy'}), 200
+
+@app.route('/auth', methods=['GET'])
+def auth():
+    """Authentication endpoint"""
+    if setup_gmail_auth():
+        return jsonify({'status': 'authenticated'}), 200
+    else:
+        return jsonify({'status': 'unauthenticated'}), 401
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
