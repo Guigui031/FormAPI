@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import os
 import base64
 import os
 from email.message import EmailMessage
@@ -11,6 +12,7 @@ from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
 CORS(app)
+app.secret_key = 'your-secret-key-change-this-in-production'
 
 def get_gmail_credentials():
     """Get Gmail API credentials for local development or production"""
@@ -133,6 +135,99 @@ def contact_form():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy'}), 200
+
+@app.route('/debug-redirect', methods=['GET'])
+def debug_redirect():
+    """Debug endpoint to check redirect URI"""
+    redirect_uri = request.url_root + 'auth/callback'
+    return jsonify({
+        'url_root': request.url_root,
+        'redirect_uri': redirect_uri,
+        'host': request.host,
+        'scheme': request.scheme
+    }), 200
+
+@app.route('/auth', methods=['GET'])
+def auth():
+    """Start OAuth2 authentication flow"""
+    from google_auth_oauthlib.flow import Flow
+    import secrets
+
+    # Allow insecure transport for development (in production, use HTTPS properly)
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+    try:
+        # Create flow instance to manage the OAuth2 authorization grant
+        flow = Flow.from_client_secrets_file(
+            'credentials.json',
+            scopes=['https://www.googleapis.com/auth/gmail.send'])
+
+        # Set the redirect URI (force HTTPS for production)
+        if request.host.startswith('form.guillaume.genois.ca'):
+            redirect_uri = 'https://form.guillaume.genois.ca/auth/callback'
+        else:
+            redirect_uri = request.url_root + 'auth/callback'
+
+        print(f"DEBUG: Using redirect_uri: {redirect_uri}")
+        flow.redirect_uri = redirect_uri
+
+        # Generate authorization URL
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true')
+
+        # Store state in session for security
+        from flask import session
+        session['state'] = state
+
+        # Redirect to Google's OAuth2 server
+        from flask import redirect
+        return redirect(authorization_url)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/auth/callback')
+def auth_callback():
+    """Handle OAuth2 callback"""
+    from google_auth_oauthlib.flow import Flow
+    from flask import session
+
+    # Allow insecure transport for development
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+    try:
+        # Create flow instance
+        flow = Flow.from_client_secrets_file(
+            'credentials.json',
+            scopes=['https://www.googleapis.com/auth/gmail.send'],
+            state=session['state'])
+
+        # Set the redirect URI (force HTTPS for production)
+        if request.host.startswith('form.guillaume.genois.ca'):
+            redirect_uri = 'https://form.guillaume.genois.ca/auth/callback'
+        else:
+            redirect_uri = request.url_root + 'auth/callback'
+
+        flow.redirect_uri = redirect_uri
+
+        # Use authorization response to fetch token
+        flow.fetch_token(authorization_response=request.url)
+
+        # Store credentials
+        credentials = flow.credentials
+
+        # Save to token.json
+        with open('token.json', 'w') as token:
+            token.write(credentials.to_json())
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Authentication successful! You can now use the API.'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
