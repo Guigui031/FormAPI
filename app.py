@@ -9,22 +9,32 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from setup_auth import setup_gmail_auth
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = 'your-secret-key-change-this-in-production'
 
 def get_gmail_credentials():
-    """Get Gmail API credentials using service account or default credentials"""
+    """Get Gmail API credentials for local development or production"""
     SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+    creds = None
 
-    try:
-        # Try to use default credentials (service account or gcloud auth)
-        creds, _ = google.auth.default(scopes=SCOPES)
-        return creds
-    except Exception as e:
-        raise Exception(f"No valid credentials found. Error: {e}")
+    # For local development, try to use token.json
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+
+    # If no local token, try default credentials (production)
+    if not creds or not creds.valid:
+        try:
+            creds, _ = google.auth.default(scopes=SCOPES)
+        except Exception:
+            # If default fails and we have local token, try to refresh it
+            if os.path.exists('token.json'):
+                creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+            else:
+                raise Exception("No valid credentials found. Run setup_auth.py first for local testing.")
 
     return creds
 
