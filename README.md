@@ -1,21 +1,64 @@
 # FormAPI
 
-A simple Flask API for handling contact form submissions via Gmail API.
+A clean, secure Flask API for handling contact form submissions via Gmail API.
 
-## Setup
+## 🚀 Features
 
-1. Install dependencies:
+- **RESTful API** for contact form submissions
+- **Gmail API integration** for reliable email delivery
+- **Environment-based configuration** for security
+- **OAuth2 authentication** flow for Gmail
+- **Docker support** for easy deployment
+- **Health check endpoint** for monitoring
+- **CORS enabled** for frontend integration
+
+## 📁 Project Structure
+
+```
+FormAPI/
+├── src/
+│   ├── app.py              # Main Flask application
+│   └── setup_auth.py       # OAuth setup utility
+├── tests/
+│   ├── test_email.py       # Local testing script
+│   └── test_production.py  # Production testing script
+├── docker-compose.yml      # Docker compose configuration
+├── Dockerfile             # Docker image definition
+├── requirements.txt       # Python dependencies
+└── README.md              # This file
+```
+
+## ⚙️ Setup
+
+### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Set up Gmail API credentials:
-   - Follow the Gmail API quickstart guide to enable the API and get credentials
-   - Save your credentials file as needed for google.auth.default()
+### 2. Gmail API Configuration
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the Gmail API
+4. Create credentials (OAuth 2.0 Client ID)
+5. Download `credentials.json` to the project root
 
-3. Run the server:
+### 3. Environment Variables (Optional)
+Create a `.env` file or set environment variables:
 ```bash
-python app.py
+SECRET_KEY=your-secret-key-here
+RECIPIENT_EMAIL=your-email@example.com
+SENDER_EMAIL=your-gmail@gmail.com
+PRODUCTION_DOMAIN=your-domain.com
+```
+
+### 4. Local Authentication Setup
+```bash
+python src/setup_auth.py
+```
+
+### 5. Run the Application
+```bash
+python src/app.py
 ```
 
 ## API Endpoints
@@ -52,8 +95,19 @@ Health check endpoint.
 }
 ```
 
-## Example Usage
+## 🧪 Testing
 
+### Local Testing
+```bash
+python tests/test_email.py
+```
+
+### Production Testing
+```bash
+python tests/test_production.py
+```
+
+### Manual API Testing
 ```bash
 curl -X POST http://localhost:5000/api/contact \
   -H "Content-Type: application/json" \
@@ -67,32 +121,37 @@ curl -X POST http://localhost:5000/api/contact \
 
 ## Deployment
 
-### Option 1: Docker Deployment (Recommended)
+### 🐳 Docker Deployment (Recommended)
 
-1. **Build and run with docker-compose:**
+1. **Using docker-compose:**
 ```bash
 docker-compose up -d
 ```
 
-2. **Or build and run manually:**
+2. **Manual Docker build:**
 ```bash
 docker build -t formapi .
 docker run -d -p 5000:5000 \
-  -v ~/.config/gcloud:/home/app/.config/gcloud:ro \
+  -e RECIPIENT_EMAIL=your-email@example.com \
+  -e SECRET_KEY=your-production-secret \
   formapi
 ```
 
-3. **For your subdomain (form.guillaume.genois.ca):**
-   - Configure nginx/Apache to proxy to the Docker container
-   - Set up SSL certificates for HTTPS
-   - Use a reverse proxy configuration
+### 🚀 Traditional Deployment
 
-### Option 2: Traditional Deployment
+1. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
 
-1. Configure your web server (nginx/Apache) to proxy requests to the Flask app
-2. Use a WSGI server like Gunicorn: `gunicorn -w 4 -b 0.0.0.0:5000 app:app`
-3. Set up SSL certificates for HTTPS
-4. Configure environment variables for production Gmail API credentials
+2. **Set production environment variables**
+
+3. **Run with Gunicorn:**
+```bash
+gunicorn -w 4 -b 0.0.0.0:5000 src.app:app
+```
+
+4. **Configure reverse proxy (nginx/Apache)**
 
 ### Sample Nginx Configuration
 

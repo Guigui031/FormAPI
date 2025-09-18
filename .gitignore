@@ -205,3 +205,22 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# FormAPI specific - Sensitive files
+credentials.json
+token.json
+*.key
+*.pem
+.env.local
+.env.production
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/

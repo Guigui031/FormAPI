@@ -1,22 +1,30 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
 import base64
-import os
 from email.message import EmailMessage
+
+from flask import Flask, request, jsonify, session, redirect
+from flask_cors import CORS
 import google.auth
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = 'your-secret-key-change-this-in-production'
+
+# Configuration
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
+RECIPIENT_EMAIL = os.environ.get('RECIPIENT_EMAIL', 'guillaumegenois031@gmail.com')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'guillaumegenois031@gmail.com')
+PRODUCTION_DOMAIN = os.environ.get('PRODUCTION_DOMAIN', 'form.guillaume.genois.ca')
+
+# Gmail API configuration
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 def get_gmail_credentials():
     """Get Gmail API credentials for local development or production"""
-    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
     creds = None
 
     # For local development, try to use token.json
@@ -62,8 +70,8 @@ This email was sent automatically from your form API.
         """
 
         email_message.set_content(email_content)
-        email_message["To"] = "guillaumegenois031@gmail.com"
-        email_message["From"] = "guillaumegenois031@gmail.com"
+        email_message["To"] = RECIPIENT_EMAIL
+        email_message["From"] = SENDER_EMAIL
         email_message["Subject"] = f"Form Submission: {subject}"
 
         # Add reply-to header with the sender's email
@@ -150,8 +158,6 @@ def debug_redirect():
 @app.route('/auth', methods=['GET'])
 def auth():
     """Start OAuth2 authentication flow"""
-    from google_auth_oauthlib.flow import Flow
-    import secrets
 
     # Allow insecure transport for development (in production, use HTTPS properly)
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -160,11 +166,11 @@ def auth():
         # Create flow instance to manage the OAuth2 authorization grant
         flow = Flow.from_client_secrets_file(
             'credentials.json',
-            scopes=['https://www.googleapis.com/auth/gmail.send'])
+            scopes=SCOPES)
 
         # Set the redirect URI (force HTTPS for production)
-        if request.host.startswith('form.guillaume.genois.ca'):
-            redirect_uri = 'https://form.guillaume.genois.ca/auth/callback'
+        if request.host.startswith(PRODUCTION_DOMAIN):
+            redirect_uri = f'https://{PRODUCTION_DOMAIN}/auth/callback'
         else:
             redirect_uri = request.url_root + 'auth/callback'
 
@@ -177,11 +183,9 @@ def auth():
             include_granted_scopes='true')
 
         # Store state in session for security
-        from flask import session
         session['state'] = state
 
         # Redirect to Google's OAuth2 server
-        from flask import redirect
         return redirect(authorization_url)
 
     except Exception as e:
@@ -190,8 +194,6 @@ def auth():
 @app.route('/auth/callback')
 def auth_callback():
     """Handle OAuth2 callback"""
-    from google_auth_oauthlib.flow import Flow
-    from flask import session
 
     # Allow insecure transport for development
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -200,12 +202,12 @@ def auth_callback():
         # Create flow instance
         flow = Flow.from_client_secrets_file(
             'credentials.json',
-            scopes=['https://www.googleapis.com/auth/gmail.send'],
+            scopes=SCOPES,
             state=session['state'])
 
         # Set the redirect URI (force HTTPS for production)
-        if request.host.startswith('form.guillaume.genois.ca'):
-            redirect_uri = 'https://form.guillaume.genois.ca/auth/callback'
+        if request.host.startswith(PRODUCTION_DOMAIN):
+            redirect_uri = f'https://{PRODUCTION_DOMAIN}/auth/callback'
         else:
             redirect_uri = request.url_root + 'auth/callback'
 
